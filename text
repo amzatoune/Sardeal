@@ -1,0 +1,16 @@
+if (message.content === 's') {
+        //const channel = message.member.voiceChannel;
+        //const channel = message.member.voice.channel;
+        const guild = client.guilds.cache.get("728191727482961991");
+        const channel = guild.channels.cache.get("728191727482961995");
+        //const connection = await channel.join();
+        if (!channel) return;
+        channel.join().then(connection => {
+            console.log('Done');
+            });
+        //const audio = connection.receiver.createStream(message, { mode: 'pcm', end: 'manual' });
+        //audio.pipe(fs.createWriteStream('user_audio'));
+
+        //connection.play(new Silence(), { type: 'opus' });
+        console.log(message.member.user.id);
+    }
