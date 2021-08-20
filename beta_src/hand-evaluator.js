@@ -16,6 +16,7 @@ class HandEvaluator {
   // their hand(s).
   static evaluateHands(players, playerHands, board) {
     let bestHand = { handType: 0, handRank: 0 };
+    let showdown = [];
     let winners = [];
     let cardArray = null;
 
@@ -29,17 +30,23 @@ class HandEvaluator {
         currentHand.handRank > bestHand.handRank)) {
         winners = [];
         winners.push(player);
+        showdown.push(player);
 
         bestHand = currentHand;
         cardArray = sevenCardHand;
       } else if (currentHand.handType === bestHand.handType &&
         currentHand.handRank === bestHand.handRank) {
         winners.push(player);
+        showdown.push(player);
+      }
+      else if (player.isAllIn) {
+        showdown.push(player);
       }
     }
 
     return {
       winners: winners,
+      showdown: showdown,
       hand: HandEvaluator.bestFiveCardHand(cardArray),
       handName: bestHand.handName,
       isSplitPot: winners.length > 1
