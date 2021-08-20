@@ -10,6 +10,6 @@ a discord bot that allows you to play a Texas Holdem poker game in a voice chann
 - [ ] Adding a wake word for voice input.
 
 ***Notable repos:***
- https://github.com/ReactiveX/rxjs
- https://github.com/discordjs/discord.js
- https://github.com/tensorflow/tfjs
+ > https://github.com/ReactiveX/rxjs
+ > https://github.com/discordjs/discord.js
+ > https://github.com/tensorflow/tfjs
