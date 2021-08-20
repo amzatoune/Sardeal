@@ -6,7 +6,7 @@ a discord bot that allows you to play a Texas Holdem poker game in a voice chann
 
 - [x] Keeping a positive attitude
 - [ ] Solve the timeout message bottlenecking phenomenon (yes it is a work of nature)
-- [ ] Minimize the text messages for the game flow (reediting previous messages, adding buttons and reactions)
+- [ ] Minimize the text messages for the game flow (reediting previous messages, make use buttons and reactions)
 - [ ] Adding a wake word for voice input.
 
 ***Notable repos:***
