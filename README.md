@@ -11,5 +11,7 @@ a discord bot that allows you to play a Texas Holdem poker game in a voice chann
 
 ***Notable repos:***
  > https://github.com/ReactiveX/rxjs
+ > 
  > https://github.com/discordjs/discord.js
+ > 
  > https://github.com/tensorflow/tfjs
