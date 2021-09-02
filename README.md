@@ -4,9 +4,9 @@ Initially started with a fork of [slack-poker-bot](https://github.com/CharlieHes
 ## Description of a prospect
 a discord bot that allows you to play a Texas Holdem poker game in a voice channel. The bot is expected to have a voice recognition service and a game service responsible to automatically detect players and manage a started game. The user interface is basically a text channel that accepts commands and managed by the bot user.
 
-- [x] Keeping a positive attitude
-- [ ] Solve the timeout message bottlenecking phenomenon (yes it is a work of nature)
-- [ partial x ] Minimize the text messages for the game flow (reediting previous messages, make use of buttons and reactions)
+- [x] A positive attitude
+- [x] Solve the timeout message bottlenecking phenomenon (yes it is a work of nature)
+- [ ] Minimize the text messages for the game flow (reediting previous messages, make use of buttons and reactions)
 - [ ] Adding a wake word for voice input.
 
 ***Notable repos:***
