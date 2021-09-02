@@ -3,7 +3,8 @@ class MessageHelpers {
   // given user.
   static containsUserMention(messageText, userId) {
     let userTag = `<@!${userId}>`;
-    return messageText && messageText.startsWith(userTag);
+    let userTag_ = `<@${userId}>`;
+    return messageText && (messageText.startsWith(userTag) || messageText.startsWith(userTag_));
   }
   static find_a_dm(members, id) {
     let found = undefined;

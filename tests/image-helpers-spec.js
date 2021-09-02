@@ -1,28 +1,21 @@
 require('babel-register');
-
 var rx = require('rx');
 var jimp = require('jimp');
 var assert = require('chai').assert;
-var imgur = require('imgur');
-var Card = require('../src/card');
-var ImageHelpers = require('../src/image-helpers');
+var Card = require('../beta_src/card');
+var ImageHelpers = require('../beta_src/image-helpers');
 
 // NB: This will need to be updated if the set of card images changes.
 var cardSize = {width: 250, height: 363};
 
 // NB: We use this in place of imgur's `uploadFile` method, but we still need
 // to match their API, which returns a {Promise}.
-var mockUpload = function(outputFile) {
-  return new Promise(function(resolve, reject) {
-    resolve({
-      data: {link: outputFile},
-    });
-  });
-};
 
-
-var mockUpload = function(outputFile) {
-  return jimp.read(outputFile);
+var mockUpload = async function(outputFile) {
+  //let buffer_out = undefined;
+  let img = await jimp.read(outputFile);
+  let buffer_out = await img.getBufferAsync(jimp.MIME_PNG);
+return buffer_out;
 };
 
 

@@ -16,12 +16,16 @@ class TexasHoldem {
   // channel - The channel where the game will be played
   // players - The players participating in the game
   // scheduler - (Optional) The scheduler to use for timing events
-  constructor(client, messages, channel, players, gameConfig, scheduler = rx.Scheduler.timeout) {
+  constructor(client, messages, clicks, channel, players, gameConfig, scheduler = rx.Scheduler.timeout) {
     this.discordClient = client;
     this.messages = messages;
+    this.clicks = clicks;
     this.channel = channel;
     this.players = players;
     this.scheduler = scheduler;
+    this.status = undefined;
+    this.action_posted = undefined;
+    this.board_message = undefined;
 
     // copy gameconfig to allow each game to be distinct
     this.gameConfig = Object.assign( {}, gameConfig);
@@ -231,20 +235,22 @@ class TexasHoldem {
   // timeToPause - (Optional) The time to wait before polling, in ms
   //
   // Returns an {Observable} containing the player's action
-  deferredActionForPlayer(player, previousActions, roundEnded, timeToPause = 1000) {
+  deferredActionForPlayer(player, previousActions, roundEnded, timeToPause = 100) {
     return rx.Observable.defer(() => {
-
+      //console.log(this.status);
       // Display player position and who's next to act before polling.
-      PlayerStatus.displayHandStatus(this.discordClient, this.channel,
+      // console.log(this.status);
+      PlayerStatus.displayHandStatus(this.status, this.channel,
         this.players, this.board, player,
         this.potManager, this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
-        this.tableFormatter);
+        this.tableFormatter).then(m=> {this.status = m;});
+
 
       return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
         this.actingPlayer = player;
 
-        return PlayerInteraction.getActionForPlayer(this.discordClient, this.messages, this.channel,
+        return PlayerInteraction.getActionForPlayer(this.discordClient, this.messages, this.clicks, this.channel,
           player, previousActions, this.scheduler, this.timeout)
           .do(action => this.onPlayerAction(player, action, previousActions, roundEnded));
       });
@@ -264,7 +270,7 @@ class TexasHoldem {
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded, postingBlind = '') {
     this.potManager.updatePotForAction(player, action);
-    this.postActionToChannel(player, action, postingBlind);
+    this.postActionToChannel(player, action, postingBlind).then(m=>{this.action_posted = m;});
 
     // Now that the action has been validated, save it for future reference.
     player.lastAction = action;
@@ -523,18 +529,17 @@ class TexasHoldem {
       return ImageHelpers.createPlayerHandImage(this.playerHands[player.id])
       .timeout(5000)
       .flatMap(buffer => {
-        let message_attachment = new MessageAttachment(buffer, 'hand.png');
-        dm.send(`Your hand is:`, message_attachment);
-
+        // let message_attachment = new MessageAttachment(buffer, 'hand.png');
+        // dm.send(`Your hand is:`, message_attachment);
+        dm.send(`Your hand is:`, { files: [buffer] });
         // NB: Since we don't have a callback for the message arriving, we're
         // just going to wait a second before continuing.
         return rx.Observable.timer(1000, this.scheduler);
       })
       .take(1)
-      .catch(() => {
-        console.error('Creating hand image timed out');
+      .catch((error) => {
+        console.error(error);
         dm.send(`Your hand is: ${this.playerHands[player.id]}`);
-        console.log("hadn sent");
         return rx.Observable.timer(1000, this.scheduler);
       });
     }
@@ -556,9 +561,14 @@ class TexasHoldem {
       return ImageHelpers.createBoardImage(this.board)
       .timeout(5000)
       .flatMap(buffer => {
-        let board_attachment = new MessageAttachment(buffer, "board.png"); //`Board${round}.png`
-        this.channel.send(`Dealing the ${round}:`, board_attachment);
-
+        // let board_attachment = new MessageAttachment(buffer, "board.png"); //`Board${round}.png`
+        // this.channel.send(`Dealing the ${round}:`, board_attachment);
+        if (this.board_message) {
+          this.board_message.delete().then(()=>{this.channel.send(`Dealing the ${round}:`, { files: [buffer] }).then(m=> {this.board_message = m;});});
+          }
+        else{
+          this.channel.send(`Dealing the ${round}:`, { files: [buffer] }).then(m=> {this.board_message = m;});
+        }
         // message.attachments = [{
         //   title: `Dealing the ${round}:`,
         //   fallback: this.board.toString(),
@@ -575,7 +585,9 @@ class TexasHoldem {
       .take(1)
       .catch(() => {
         console.error('Creating board image timed out');
-
+        if (this.board_message) {
+          this.board_message.delete({ timeout: 5 });
+          }
         let message = `Dealing the ${round}:\n${this.board.toString()}`;
         this.channel.send(message);
 
@@ -583,6 +595,9 @@ class TexasHoldem {
       });
     }
     else {
+      if (this.board_message) {
+        this.board_message.delete({ timeout: 5 });
+        }
       let message = `Dealing the ${round}:\n${this.board.toString()}`;
       this.channel.send(message);
 
@@ -599,8 +614,8 @@ class TexasHoldem {
   // Returns nothing
   postActionToChannel(player, action, postingBlind = '') {
     let message = postingBlind === '' ?
-      `${player.name} ${action.name}s` :
-      `${player.name} posts ${postingBlind} of`;
+      `**${player.name} ${action.name}s**` :
+      `**${player.name} posts ${postingBlind} of**`;
 
     if (action.name === 'bet')
       message += ` $${action.amount}.`;
@@ -609,7 +624,14 @@ class TexasHoldem {
     else
       message += '.';
 
-    this.channel.send(message);
+    let get_message = undefined;
+    if (this.action_posted) {
+        get_message = this.action_posted.edit(message);
+      }
+    else {
+        get_message = this.channel.send(message);
+      }
+    return get_message;
   }
 
   // Private: Checks if all player actions adhered to some condition.

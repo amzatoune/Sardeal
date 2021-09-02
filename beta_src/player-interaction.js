@@ -1,5 +1,7 @@
 const rx = require('rx');
 const _ = require('underscore-plus');
+const { MessageButton, MessageActionRow, MessageMenuOption, MessageMenu } = require("discord-buttons");
+
 
 class PlayerInteraction {
   // Public: Poll players that want to join the game during a specified period
@@ -15,12 +17,11 @@ class PlayerInteraction {
   // `onCompleted` when time expires or the max number of players join.
   static pollPotentialPlayers(messages, client, channel, timeout=30, maxPlayers=10, scheduler=rx.Scheduler.timeout) {
     let formatMessage = t => `Who wants to play? Respond with 'yes' in this channel in the next ${t} seconds.`;
-    let timeExpired = PlayerInteraction.postMessageWithTimeout(client, channel, formatMessage, scheduler, timeout);
-
+    let timeExpired = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
     // Look for messages containing the word 'yes' and map them to a unique
     // user ID, constrained to `maxPlayers` number of players.
 
-    let newPlayers = messages.where(e => e.content && e.author.id!=client.user.id && e.content.toLowerCase().match(/\byes\b/))
+    let newPlayers = messages.where(e => e.content && e.author.id != client.user.id && e.content.toLowerCase().match(/\byes\b/))
       .map(e => e.author)
       .distinct()
       .take(maxPlayers)
@@ -29,7 +30,6 @@ class PlayerInteraction {
     newPlayers.connect();
 
     timeExpired.connect();
-
     // Once our timer has expired, we're done accepting new players.
     return newPlayers.takeUntil(timeExpired);
   }
@@ -45,14 +45,14 @@ class PlayerInteraction {
   //
   // Returns an {Observable} indicating the action the player took. If time
   // expires, a 'timeout' action is returned.
-  static getActionForPlayer(client, messages, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
+  static getActionForPlayer(client, messages, clicks, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
     let formatMessage = t => PlayerInteraction.buildActionMessage(player, availableActions, t);
     
     let timeExpired = null;
     let expiredDisp = null;
     if (timeout > 0) {
-      timeExpired = PlayerInteraction.postMessageWithTimeout(client, channel, formatMessage, scheduler, timeout);
+      timeExpired = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
       expiredDisp = timeExpired.connect();
     } else {
       channel.send(formatMessage(0));
@@ -61,12 +61,19 @@ class PlayerInteraction {
     }
 
     // Look for text that conforms to a player action.
-    let playerAction = messages.where(e => e.author.id === player.id)
-      .map(e => PlayerInteraction.actionFromMessage(e.content, availableActions, player))
-      .where(action => action !== null)
-      .publish();
+    // let playerAction = messages.where(e => e.author.id === player.id)
+    //   .map(e => PlayerInteraction.actionFromMessage(e.content, availableActions, player))
+    //   .where(action => action !== null)
+    //   .publish();
+
+    // playerAction.connect();
+    let playerAction = clicks.where(b => b.clicker.id === player.id)
+    .map(b => PlayerInteraction.actionFromMessage(b.id, availableActions, player))
+    .where(action => action !== null)
+    .publish();
 
     playerAction.connect();
+
     
     // If the user times out, they will be auto-folded unless they can check.
     let actionForTimeout = timeExpired.map(() =>
@@ -95,29 +102,47 @@ class PlayerInteraction {
   // timeout - The duration of the message, in seconds
   //
   // Returns an {Observable} sequence that signals expiration of the message
-  static postMessageWithTimeout(client, channel, formatMessage, scheduler, timeout) {
+  static postMessageWithTimeout(channel, formatMessage, scheduler, timeout) {
     let sent = false;
     
     // client.channels.cache.get(channel.id).send(formatMessage(timeout))
     channel.send(formatMessage(timeout))
     .then((result) => {
       sent = result;
+      //sent.react('🍎');
     })
     .catch(console.error);
 
-    let timeExpired = rx.Observable.timer(0, 1000, scheduler)
-    .take(timeout + 1)
+    let timeExpired = rx.Observable.timer(0, 2000, scheduler)
+    .take((timeout / 2) + 1)
     .do((x) => { 
+      let timeout_msg = 0;
       if (sent) {
-        sent.edit(formatMessage(`${timeout - x}`))
+        if(x >= (timeout / 2)) {timeout_msg = timeout - (2 * x) + 1;}
+        else {timeout_msg = timeout - (2 * x);}
+        sent.edit(formatMessage(`${timeout_msg}`))
         .then((result) => {
           sent = result;
+          //result.delete({ timeout: (timeout + 1 - x) * 1000 }).then().catch(e=>{console.log(e)});
         })
-        .catch(console.error);  
+        .catch(console.error);
       }
     })
-    .publishLast();
 
+    // let timeExpired = rx.Observable.timer(0, 1000, scheduler)
+    // .take(timeout + 1)
+    // .do((x) => {
+    //   if (sent) {
+    //     sent.edit(formatMessage(timeout - x))
+    //     .then((result) => {
+    //       sent = result;
+    //     })
+    //     .catch(console.error);
+    //   }
+    // })
+    .finally(()=>{if (sent) {sent.delete();}})
+    .publishLast();
+    
     return timeExpired;
 
   }
@@ -130,18 +155,52 @@ class PlayerInteraction {
   // timeRemaining - Number of seconds remaining for the player to act
   //
   // Returns the formatted string
+
   static buildActionMessage(player, availableActions, timeRemaining) {
-    let message = (player.isBot?`${player.name}`:`<@${player.id}>`) + `, it's your turn. Respond with:\n`;
-    for (let action of availableActions) {
-      message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\t`;
-    }
-    
+    let message = (player.isBot?`${player.name}`:`<@!${player.id}>`) + `, it's your turn.`;
     if (timeRemaining > 0) {
-      message += `\nin the next ${timeRemaining} seconds.`;
+      message += `You have ${timeRemaining} seconds.. `;
     }
+    if (player.isBot){
+      
+      return message;
+     }
+    let row = new MessageActionRow();
+    for (let action of availableActions) {
+      let button = new MessageButton()
+      .setStyle((action != 'fold') ? 'red':'grey')
+      //.setLabel(`(${action.charAt(0).toUpperCase()})${action.slice(1)}\t`)
+      .setLabel(`${action.charAt(0).toUpperCase()}${action.slice(1)}\t`)
+      .setID(`${action}`);
+
+      row.addComponents(button);
+    }
+
     
-    return message;
+
+    
+    return { content: message, components: [row] };
   }
+  // static buildActionMessage(player, availableActions, timeRemaining) {
+  //   let message = (player.isBot?`${player.name}`:`<@!${player.id}>`) + `, it's your turn. Respond with:\n`;
+
+  //   for (let action of availableActions) {
+  //     let button_allin = new MessageButton()
+  //     .setStyle('red')
+  //     .setLabel('Allin')
+  //     .setID('allin');
+
+  //     let row1 = new MessageActionRow()
+  //     .addComponents(button_raise, button_check, button_fold);
+  //     message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\t`;
+  //   }
+    
+  //   if (timeRemaining > 0) {
+  //     message += `\nin the next ${timeRemaining} seconds.`;
+  //   }
+    
+  //   return message;
+  // }
 
   // Private: Given an array of actions taken previously in the hand, returns
   // an array of available actions.
@@ -191,7 +250,50 @@ class PlayerInteraction {
   //
   // Returns an object representing the action, with keys for the name and
   // bet amount, or null if the input was invalid.
-  static actionFromMessage(text, availableActions, player=null) {
+  static actionFromClick(text, availableActions, player = null) {
+    if (!text) return null;
+
+    let input = text.trim().toLowerCase().split(/\s+/);
+    if (!input[0]) return null;
+
+    let name = '';
+    let amount = 0;
+
+    switch (input[0]) {
+    case 'c':
+      name = availableActions[0];
+      break;
+    case 'call':
+      name = 'call';
+      break;
+    case 'check':
+      name = 'check';
+      break;
+    case 'f':
+    case 'fold':
+      name = 'fold';
+      break;
+    case 'b':
+    case 'bet':
+      name = 'bet';
+      amount = input[1] ? parseInt(input[1]) : NaN;
+      break;
+    case 'r':
+    case 'raise':
+      name = 'raise';
+      amount = input[1] ? parseInt(input[1]) : NaN;
+      break;
+    case 'allin':
+      name = availableActions[1];
+      //TODO: this isn't quite right if you're the blinds and you go allin pre-flop 
+      amount = player.chips;
+      break;
+    default:
+      return null;
+    }
+  }
+  
+  static actionFromMessage(text, availableActions, player = null) {
     if (!text) return null;
 
     let input = text.trim().toLowerCase().split(/\s+/);

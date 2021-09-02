@@ -1,0 +1,2 @@
+import fetch from 'node-fetch';
+fetch("https://discord.com/api/webhooks/800565716679393331/aW50ZXJhY3Rpb246ODgyNzEwNTk3NDI5NTE4Mzk4OkllR3JHNWFBUDdkNzZnbURLTjdWcVVmOUZqRmlBQllHVkt2ZnN4VXlxTEdxT2h0RzBTWkI5dXF2NG9kRlJjSzgxNkFVdzEyOEEyU3JVZVJRV2hKZWk5ZkpOV2JMSEtFNXVLQ1BLWjNrUUljT3VxV1d3bDJoWUJwNDhGTURUYkx5/messages/@original", { method: "DELETE" } ).then(r=>{console.log(r);});

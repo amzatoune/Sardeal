@@ -14,6 +14,7 @@ class Bot {
   // token - An API token from the bot integration
   constructor(token) {
     this.discordClient = new Discord.Client();
+    require("discord-buttons")(this.discordClient);
 
     this.gameConfig = { 
       timeout: 45, 
@@ -71,8 +72,8 @@ class Bot {
     let atMentions = messages.where(e =>
       MessageHelpers.containsUserMention(e.content, this.discordClient.user.id));
     let disp = new rx.CompositeDisposable();
-
-    disp.add(this.handleStartGameMessages(messages, atMentions));
+    let clicks = rx.Observable.fromEvent(this.discordClient, 'clickButton');
+    disp.add(this.handleStartGameMessages(messages, clicks, atMentions));
     disp.add(this.handleSetConfigMessages(atMentions));
     disp.add(this.handleGetConfigMessages(atMentions));
     disp.add(this.handleHelpMessages(atMentions));
@@ -88,9 +89,9 @@ class Bot {
   //
   // Returns a {Disposable} that will end this subscription
 
-  handleStartGameMessages(messages, atMentions) {
+  handleStartGameMessages(messages, clicks, atMentions) {
     return atMentions
-      .where(e => e.content && e.content.toLowerCase().match(/\bgame\b/))
+      .where(e => e.content && e.content.toLowerCase().match(/\bholdem\b/))
       .map(e => e.channel)
       .where(channel => {
         if (channel in this.isPolling && this.isPolling[channel]) {
@@ -101,7 +102,7 @@ class Bot {
         }
         return true;
       })
-      .flatMap(channel => this.pollPlayersForGame(messages, channel))
+      .flatMap(channel => this.pollPlayersForGame(messages, clicks, channel))
       .subscribe();
   }
 
@@ -158,17 +159,6 @@ class Bot {
 //   channel = message.channel.id
 //   client.channels.cache.get('CHANNEL ID').
 
-//   handleGetConfigMessages(atMentions) {
-//     return atMentions
-//       .where(e => e.content && e.content.toLowerCase().match(/\game\b/))
-//       .subscribe(e => {
-//         let scheduler=rx.Scheduler.timeout;
-//         let timeout=30;
-//         let formatMessage = t => `Who wants to play? Respond with 'yes' in this channel in the next ${t} seconds.`;
-//         let timeExpired = PlayerInteraction.postMessageWithTimeout(this.discordClient, e.channel, formatMessage, scheduler, timeout);
-//         timeExpired.connect();
-//       });
-//   }
 
   // Private: Looks for messages directed at the bot that contain the word
   // "help". When found, explain how to start new game.
@@ -197,11 +187,11 @@ class Bot {
   //
   // Returns an {Observable} that signals completion of the game 
 //================================
-  pollPlayersForGame(messages, channel) {
+  pollPlayersForGame(messages, clicks, channel) {
     this.isPolling[channel] = true;
     return PlayerInteraction.pollPotentialPlayers(messages, this.discordClient, channel, this.gameConfig.start_game_timeout, this.gameConfig.maxplayers)
       .reduce((players, user) => {
-        channel.send(`@${user.username} has joined the game.`);
+        channel.send(`<@!${user.id}> has joined the game.`);
         players.push({ id: user.id, name: user.username });
         return players;
       }, [])
@@ -212,8 +202,8 @@ class Bot {
         }
 
         let messagesInChannel = messages.where(e => e.channel === channel);
-        console.log(players);
-        return this.startGame(messagesInChannel, channel, players);
+        //console.log(players);
+        return this.startGame(messagesInChannel, clicks, channel, players);
       });
   }
 
@@ -224,7 +214,7 @@ class Bot {
   // players - The players participating in the game
   //
   // Returns an {Observable} that signals completion of the game 
-  startGame(messages, channel, players) {
+  startGame(messages, clicks, channel, players) {
     if (players.length <= 1) {
       channel.send('Not enough players for a game, try again later.');
       return rx.Observable.return(null);
@@ -233,7 +223,7 @@ class Bot {
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning[channel] = true;
 
-    let game = new TexasHoldem(this.discordClient, messages, channel, players, this.gameConfig);
+    let game = new TexasHoldem(this.discordClient, messages, clicks, channel, players, this.gameConfig);
     // TODO: clean this up?
     _.extend(game, this.gameConfig);
 

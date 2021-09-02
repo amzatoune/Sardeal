@@ -4,11 +4,13 @@ const jimp = require('jimp');
 const promisify = require('promisify-node');
 const tmp = require('tmp');
 
+
 const getBuffer = async function(outputFile) {
+  //let buffer_out = undefined;
   let img = await jimp.read(outputFile);
-  let buffer = await img.getBufferAsync(jimp.MIME_PNG);
-  return buffer;
-	};
+  let buffer_out = await img.getBufferAsync(jimp.MIME_PNG);
+return buffer_out;
+};
 
 class ImageHelpers {
 
@@ -22,13 +24,13 @@ class ImageHelpers {
   // Returns an {Observable} that will `onNext` with the URL of the combined
   // image, or `onError` if anything goes wrong
   
-  
+
 
   static createBoardImage(cards, upload = getBuffer) {
     
     let subj = new rx.AsyncSubject();
     let imageFiles = cards.map(c => `resources/${c.toAsciiString()}.png`);
-
+    let back = `resources/back_red.png`;
     // create a tmp dir that will auto-cleanup all files plus itself
     // on node process exit
     let output_dir = tmp.dirSync({unsafeCleanup:true});
@@ -51,7 +53,20 @@ class ImageHelpers {
         break;
       case 3:
         imagePath = output_dir.name+'/flop.png';
-        makeImage = ImageHelpers.combineThree(imageFiles, imagePath);
+        // makeImage = ImageHelpers.combineThree(imageFiles, imagePath);
+
+        makeImage = ImageHelpers.combineThree(
+          imageFiles,
+          output_dir.name+'/flop_flop.png',
+        ).then(outputFile => {
+          //console.log('Turn part 1 rendered. Turn part 2 now');
+          return ImageHelpers.combineThree(
+            [outputFile, back, back],
+            imagePath);
+            /* .then(outputFile => {
+              console.log('Turn rendered');
+            })} */
+          });
         /* .then(outputFile => {
           console.log('Flop rendered');
         }); */
@@ -64,8 +79,8 @@ class ImageHelpers {
           output_dir.name+'/turn_flop.png',
         ).then(outputFile => {
           //console.log('Turn part 1 rendered. Turn part 2 now');
-          return ImageHelpers.combineTwo(
-            [outputFile, imageFiles[3]],
+          return ImageHelpers.combineThree(
+            [outputFile, imageFiles[3], back],
             imagePath);
             /* .then(outputFile => {
               console.log('Turn rendered');
@@ -100,8 +115,8 @@ class ImageHelpers {
         return upload(imagePath);
       })
       .then(result => {
-        subj.onNext(result);
-        // subj.onNext(result.getBuffer(jimp.MIME_PNG, (err, buffer) => {console.log(buffer); return buffer;}));
+        //subj.onNext(result.getBuffer(jimp.MIME_PNG, (err, buffer) => {console.log(buffer); return buffer;}));
+	      subj.onNext(result);
         subj.onCompleted();
       })
       .catch(err => {

@@ -3,9 +3,12 @@ const Deck = require('./beta_src/deck');
 const ImageHelpers = require('./beta_src/image-helpers');
 const fs = require('fs');
 const Discord = require('discord.js');
+//const { MessageActionRow, MessageButton } = require('discord.js');
 const dotenv = require('dotenv');
 const rx = require('rx');
 const jimp = require('jimp');
+const textTable = require('text-table');
+
 const MessageHelpers = require('./beta_src/message-helpers');
 /* const client = new Discord.Client({
     partials: ["REACTION", "MESSAGE"],
@@ -135,32 +138,207 @@ client.on('message', async message => {
   }
 });
 
+function getShiftedString(s, leftShifts, rightShifts) {
+  // using `split('')` will result in certain unicode characters being separated incorrectly
+  // use Array.from instead:
+   const arr = Array.from(s);
+   const length = arr.length;
+   console.log(length);
+   const netLeftShifts = (leftShifts - rightShifts) % length;
+   console.log(netLeftShifts);
 
+   //if ((netLeftShifts === 1 && arr[0] === "💵") || (netLeftShifts === -1 && arr[length - 1] === "💵")) {return s;}
+   return [...arr.slice(netLeftShifts), ...arr.slice(0, netLeftShifts)]
+     .join('');
+ }
+
+
+ let button_raise = new MessageButton()
+ .setStyle('blurple')
+ .setLabel('Raise')
+ .setEmoji('😈')
+ .setID('raise');
+
+ let button_bet = new MessageButton()
+ .setStyle('red')
+ .setLabel('Bet')
+ .setEmoji('👽')
+ .setID('bet');
+
+ let button_check = new MessageButton()
+ .setStyle('green')
+ .setLabel('Check')
+ .setEmoji('🤖')
+ .setID('check');
+
+ let button_fold = new MessageButton()
+ .setStyle('grey')
+ .setLabel('Fold')
+ .setEmoji('👿')
+ .setID('fold');
+
+let sliderString = "💵💴💴💴💴💴💴💴💴💴💴💴";
+let button_minus = new MessageButton()
+    .setStyle('blurple')
+    .setEmoji('⬅️')
+    .setID('minus');
+
+let button_plus = new MessageButton()
+.setStyle('blurple')
+.setEmoji('➡️')
+.setID('plus');
+
+let button_halfpot = new MessageButton()
+ .setStyle('green')
+ .setLabel('1/2pot')
+ .setID('halfpot');
+
+ let button_pot = new MessageButton()
+ .setStyle('green')
+ .setLabel('Pot')
+ .setID('pot');
+
+ let button_allin = new MessageButton()
+ .setStyle('red')
+ .setLabel('Allin')
+ .setID('allin');
+
+let row1 = new MessageActionRow()
+.addComponents(button_raise, button_check, button_fold);
+
+let row2 = new MessageActionRow()
+.addComponents(button_minus, button_plus);
+
+let row3 = new MessageActionRow()
+.addComponents(button_halfpot, button_pot, button_allin);
+
+let pot = 300;
+let stack = 1000;
+let bet = 0;
+client.on('message', async (message) => {
+  if(message.content === 'menu') {
+    let tableFormatter=`\`\`\``;
+    let table = [];
+
+    for (let idx = 0; idx < 2; idx++) {
+      let row = [];
+
+      let player = {name:'gobling', chips:2000, isInHand:true};
+      let turnIndicator = '→ ';
+      row.push(`${turnIndicator}${player.name}`);
+      row.push(`$${player.chips}`);
+
+      let handIndicator = player.isInHand ? '🂠' : ' ';
+      row.push(handIndicator);
+      let dealerText = `💩`;
+      let smallBlindText =  null;
+      let bigBlindText = null;
+      let positionIndicator = bigBlindText || smallBlindText || dealerText || ' ';
+      row.push(positionIndicator);
+
+      let actionIndicator = 'check';
+
+      row.push(actionIndicator);
+
+      //console.log(row);
+      table.push(row);
+    }
+    console.log(`${tableFormatter}${textTable(table)}${tableFormatter}`);
+    const exampleEmbed = new Discord.MessageEmbed()
+	.setColor('#0099ff')
+	.setTitle('Pot')
+	.setThumbnail('https://i.imgur.com/wSTFkRM.png')
+	.addFields(
+		{ name: 'Regular field title', value: `${tableFormatter}${textTable(table)}${tableFormatter}` },
+		{ name: '\u200B', value: '\u200B' },
+		//{ name: `${row1.join('\t')}`, value: `${table.join('\t')}`},
+		{ name: 'Inline field title', value: 'Some value heredasdasdasd', inline: true },
+    { name: 'Inline field title', value: 'Some value hereasdasdasdasd', inline: true },
+		{ name: 'Inline field title', value: 'Some value heresadasdasdas', inline: true },
+    { name: 'Inline field title', value: 'Some value hereasdasdasdasdas', inline: true },
+		{ name: 'Inline field title', value: 'Some value heresadasdasdasda', inline: true }
+	)
+	.addField('Inline field title', 'Some value here', true)
+	.setImage('https://i.imgur.com/wSTFkRM.png')
+	.setTimestamp()
+	.setFooter('Some footer text here', 'https://i.imgur.com/wSTFkRM.png');
+
+  // message.channel.send(exampleEmbed,row1);
+  message.channel.send({ content: exampleEmbed, components: [row1] });
+  // message.channel.send(sliderString, row);
+  }
+})
 
 client.on('clickButton', async (button) => {
-  await button.reply.defer();
+  // if (button.user.id == "804729395544981525")
+  // {
+  //   console.log(button);
+  // }
+  //console.log(button);
   switch (button.id)
   {
-    case "raise": 
-      // await button.reply.think(true)
-      await button.reply.edit('I raised! ~o.o~$');
-      // await button.reply.send('You raised!', true);
+    case "raise":
+      //await button.reply.defer();
+      // await button.reply.send({ content: sliderString, components: [row2] },true);
+      //await button.reply.send({ content: sliderString, ephemeral: true, components: [row2, row3] });
+      await button.reply.send({ content: sliderString, components: [row2, row3] });
+      //console.log(button.applicationID);
+      //console.log(button.token);
+      //client.api.webhooks(button.applicationID, button.token).messages.delete();
       break;
-    case "check":
-      await button.reply.edit('I checked! ~o.o~');
+    case "minus":
+      await button.reply.defer();
+      sliderString = getShiftedString(sliderString, 10, 0);
+      await button.reply.edit(sliderString);
+      await button.reply.delete();
+      
       break;
-    case "bet":
-      await button.reply.edit('I bet! ~o.o~');
+    case "plus":
+      await button.reply.defer();
+      sliderString = getShiftedString(sliderString, 0, 10);
+      await button.reply.edit(sliderString);
       break;
-    case "fold":
-      await button.reply.edit('I folded! ~o.o~');
+    case "halfpot":
+      break;
+    case "pot":
+      break;
+    case "allin":
       break;
     default:
-      await button.reply.edit('I edited the previous content! ~o.o~');
+      return;
+      //await button.reply.defer();
 
   }
 
 });
+
+
+
+// client.on('clickButton', async (button) => {
+//   await button.reply.defer();
+//   switch (button.id)
+//   {
+//     case "raise": 
+//       // await button.reply.think(true)
+//       console.log(button);
+//       await button.reply.edit('I raised! ~o.o~$');
+//       // await button.reply.send('You raised!', true);
+//       break;
+//     case "check":
+//       await button.reply.edit('I checked! ~o.o~');
+//       break;
+//     case "bet":
+//       await button.reply.edit('I bet! ~o.o~');
+//       break;
+//     case "fold":
+//       await button.reply.edit('I folded! ~o.o~');
+//       break;
+//     // default:
+//     //   await button.reply.edit('I edited the previous content! ~o.o~');
+
+//   }
+
+// });
 
 rx.Observable.fromEvent(client, 'message')
           .subscribe((message) => {
@@ -230,29 +408,7 @@ client.on('message', async message => {
   if (message.content === '!deal')
   {
 
-    let button_raise = new MessageButton()
-    .setStyle('blurple')
-    .setLabel('Raise')
-    .setEmoji('😈')
-    .setID('raise');
 
-    let button_bet = new MessageButton()
-    .setStyle('red')
-    .setLabel('Bet')
-    .setEmoji('👽')
-    .setID('bet');
-
-    let button_check = new MessageButton()
-    .setStyle('green')
-    .setLabel('Check')
-    .setEmoji('🤖')
-    .setID('check');
-
-    let button_fold = new MessageButton()
-    .setStyle('grey')
-    .setLabel('Fold')
-    .setEmoji('👿')
-    .setID('fold');
 
     let row = new MessageActionRow()
   .addComponents(button_raise, button_bet, button_check, button_fold);
@@ -314,7 +470,7 @@ client.on('message', async message => {
   // });
   
   //we return a message that operation went successful
-  console.log(message.channel);
+  //console.log(message.channel);
   return message.channel.send(`Everyone was moved!`, row)
   }
 });

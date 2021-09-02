@@ -201,7 +201,8 @@ class PotManager {
     //Show players cards
     for (let player of _.uniq(showdown, 'id')) {
       let message = `Player ${player.name} shows ${playerHands[player.id]}.`;
-      this.channel.send(message,);
+      this.channel.send(message)
+      .then(m=>{m.delete({ timeout:3000 }).catch(e=>{console.log(e);});});
     }
 
 
@@ -279,7 +280,8 @@ class PotManager {
       result.winners[0].chips += pot.amount;
     }
 
-    this.channel.send(message);
+    this.channel.send(message)
+    .then(m=>{m.delete({ timeout:3000 }).catch(e=>{console.log(e);});});
   }
 
   // Public: Returns the total number of chips in all pots. Primarily used for
